@@ -32,12 +32,23 @@
             <button id="resetTheme" class="text-btn">恢复默认</button>
           </div>
 
+          <div class="preset-controls">
+            <label for="themePreset">一键预设（替换当前设置）</label>
+            <select id="themePreset">
+              <option value="">自定义</option>
+              <option value="business">商务蓝</option>
+              <option value="dark">深色</option>
+              <option value="light">简洁白</option>
+            </select>
+            <p id="storageStatus" class="help-text" role="status" aria-live="polite"></p>
+          </div>
+
           <form id="themeForm" class="control-groups">
             <div class="control-group">
               <h3>基础信息</h3>
               <label>
                 主题名称
-                <input id="themeName" name="themeName" type="text" value="Clean Insight" />
+                <input id="themeName" name="themeName" type="text" value="Clean Insight" maxlength="100" required />
               </label>
               <label>
                 字体
@@ -57,7 +68,7 @@
                 <input id="primaryColor" name="primaryColor" type="color" value="#3b82f6" />
               </label>
               <label>
-                辅助色
+                辅助色（仅网页预览）
                 <input id="secondaryColor" name="secondaryColor" type="color" value="#8b5cf6" />
               </label>
               <label>
@@ -107,7 +118,7 @@
             </div>
 
             <div class="control-group two-columns">
-              <h3>排版与布局</h3>
+              <h3>排版与布局（仅网页预览）</h3>
               <label>
                 页面圆角
                 <input id="borderRadius" name="borderRadius" type="range" min="6" max="28" value="18" />
@@ -254,8 +265,9 @@
                 <p class="panel-tag">导出结果</p>
                 <h2>Power BI Theme JSON</h2>
               </div>
-              <span id="jsonStatus" class="json-status">Ready</span>
+              <span id="jsonStatus" class="json-status" role="status" aria-live="polite">准备就绪</span>
             </div>
+            <p class="help-text">导出包含配色、字体、画布和视觉对象背景。圆角、阴影及辅助色仅用于网页预览。实际效果以 Power BI 中的图表和字体支持为准。</p>
             <pre id="jsonOutput" class="json-output"></pre>
           </section>
         </section>

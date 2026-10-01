@@ -104,7 +104,7 @@ h1 {
 }
 
 .ghost-btn {
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--surface-color);
   color: var(--text-color);
   border: 1px solid rgba(148, 163, 184, 0.25);
 }
@@ -133,7 +133,7 @@ h1 {
 }
 
 .panel {
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--surface-color);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(148, 163, 184, 0.2);
   border-radius: 28px;
@@ -169,7 +169,7 @@ h1 {
   gap: 14px;
   padding: 18px;
   border-radius: 22px;
-  background: rgba(248, 250, 252, 0.78);
+  background: var(--background-color);
   border: 1px solid rgba(226, 232, 240, 0.95);
 }
 
@@ -194,7 +194,7 @@ select {
   border: 1px solid rgba(148, 163, 184, 0.25);
   border-radius: 14px;
   padding: 12px 14px;
-  background: #fff;
+  background: var(--surface-color);
   color: var(--text-color);
 }
 
@@ -491,4 +491,12 @@ input[type='range'] {
   .dashboard-preview {
     padding: 18px;
   }
+}
+
+.preset-controls { display: grid; gap: 10px; margin-bottom: 20px; }
+.help-text { color: var(--muted-text-color); font-size: 0.85rem; line-height: 1.6; margin: 0 0 14px; }
+.json-status { white-space: normal; overflow-wrap: anywhere; }
+button:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid var(--primary-color); outline-offset: 3px;
 }

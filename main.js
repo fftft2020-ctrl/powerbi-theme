@@ -17,8 +17,37 @@ const defaults = {
   shadowStrength: 16,
 };
 
+const STORAGE_KEY = 'powerbi-theme-studio:v1';
+const presets = {
+  business: { ...defaults, themeName: '商务蓝' },
+  dark: {
+    ...defaults, themeName: '深色', primaryColor: '#60a5fa', secondaryColor: '#a78bfa',
+    backgroundColor: '#0f172a', surfaceColor: '#1e293b', textColor: '#f1f5f9',
+    mutedTextColor: '#cbd5e1', accentColor: '#2dd4bf', alertColor: '#fb923c',
+    dataColor1: '#60a5fa', dataColor2: '#a78bfa', dataColor3: '#2dd4bf', dataColor4: '#fbbf24',
+  },
+  light: {
+    ...defaults, themeName: '简洁白', primaryColor: '#2563eb', secondaryColor: '#475569',
+    backgroundColor: '#ffffff', surfaceColor: '#f8fafc', textColor: '#111827',
+    mutedTextColor: '#4b5563', accentColor: '#0f766e', alertColor: '#c2410c',
+    dataColor1: '#2563eb', dataColor2: '#64748b', dataColor3: '#0f766e', dataColor4: '#d97706',
+    borderRadius: 10, shadowStrength: 0,
+  },
+};
+const colorKeys = Object.keys(defaults).filter((key) => key.endsWith('Color') || /^dataColor/.test(key));
+const fonts = ["'Segoe UI', sans-serif", 'Inter, sans-serif', 'Arial, sans-serif', "'Microsoft YaHei', sans-serif"];
+const isValidTheme = (theme) => Boolean(
+  theme && typeof theme === 'object' && !Array.isArray(theme) &&
+  typeof theme.themeName === 'string' && theme.themeName.trim().length > 0 && theme.themeName.length <= 100 &&
+  fonts.includes(theme.fontFamily) &&
+  colorKeys.every((key) => typeof theme[key] === 'string' && /^#[0-9a-f]{6}$/i.test(theme[key])) &&
+  Number.isInteger(theme.borderRadius) && theme.borderRadius >= 6 && theme.borderRadius <= 28 &&
+  Number.isInteger(theme.shadowStrength) && theme.shadowStrength >= 0 && theme.shadowStrength <= 40
+);
+
 const form = document.getElementById('themeForm');
-const dashboardPreview = document.getElementById('dashboardPreview');
+const presetSelect = document.getElementById('themePreset');
+const storageStatus = document.getElementById('storageStatus');
 const jsonOutput = document.getElementById('jsonOutput');
 const copyJsonButton = document.getElementById('copyJson');
 const downloadJsonButton = document.getElementById('downloadJson');
@@ -53,38 +82,31 @@ const getThemeState = () => {
   };
 };
 
-const buildThemeJson = (theme) => ({
-  name: theme.themeName,
-  foreground: theme.textColor,
-  foregroundNeutralSecondary: theme.mutedTextColor,
-  background: theme.backgroundColor,
-  tableAccent: theme.primaryColor,
-  dataColors: [theme.dataColor1, theme.dataColor2, theme.dataColor3, theme.dataColor4],
-  visualStyles: {
-    '*': {
-      '*': {
-        color: [{ solid: { color: theme.textColor } }],
-        fontFamily: theme.fontFamily,
-        background: [{ solid: { color: theme.surfaceColor } }],
-      },
+// Power BI uses a font family name, not a CSS fallback stack.
+const buildThemeJson = (theme) => {
+  if (!isValidTheme(theme)) throw new Error('主题设置无效');
+  const fontFace = theme.fontFamily.split(',')[0].replace(/'/g, '').trim();
+  const textStyle = { fontFace, color: theme.textColor };
+  return {
+    name: theme.themeName.trim(),
+    foreground: theme.textColor,
+    foregroundNeutralSecondary: theme.mutedTextColor,
+    background: theme.backgroundColor,
+    secondaryBackground: theme.surfaceColor,
+    tableAccent: theme.primaryColor,
+    good: theme.accentColor,
+    bad: theme.alertColor,
+    dataColors: [theme.dataColor1, theme.dataColor2, theme.dataColor3, theme.dataColor4],
+    textClasses: {
+      title: { ...textStyle }, header: { ...textStyle },
+      label: { ...textStyle }, callout: { ...textStyle },
     },
-    page: {
-      '*': {
-        background: [{ solid: { color: theme.backgroundColor } }],
-      },
+    visualStyles: {
+      '*': { '*': { background: [{ show: true, color: { solid: { color: theme.surfaceColor } }, transparency: 0 }] } },
+      page: { '*': { background: [{ color: { solid: { color: theme.backgroundColor } }, transparency: 0 }] } },
     },
-  },
-  custom: {
-    borderRadius: `${theme.borderRadius}px`,
-    shadowBlur: `${theme.shadowStrength}px`,
-    semanticColors: {
-      primary: theme.primaryColor,
-      secondary: theme.secondaryColor,
-      accent: theme.accentColor,
-      alert: theme.alertColor,
-    },
-  },
-});
+  };
+};
 
 const applyThemeToPreview = (theme) => {
   document.body.style.fontFamily = theme.fontFamily;
@@ -107,10 +129,7 @@ const applyThemeToPreview = (theme) => {
     `0 18px ${Math.max(theme.shadowStrength * 2, 18)}px rgba(15, 23, 42, 0.08)`
   );
 
-  dashboardPreview.querySelector('#heroValue').textContent =
-    theme.primaryColor === defaults.primaryColor ? '¥ 1,284,000' : '¥ 1,367,000';
-  dashboardPreview.querySelector('#heroDelta').textContent =
-    theme.accentColor === defaults.accentColor ? '同比增长 12.8%' : '重点指标已更新';
+  // Example metrics stay fixed in index.html when the theme changes.
 
   borderRadiusValue.textContent = `${theme.borderRadius}px`;
   shadowStrengthValue.textContent = `${theme.shadowStrength}px`;
@@ -122,51 +141,108 @@ const renderJson = (theme) => {
   return output;
 };
 
-const updateTheme = () => {
-  const theme = getThemeState();
-  applyThemeToPreview(theme);
-  renderJson(theme);
-  setStatus('Updated');
+
+const applyForm = (theme) => {
+  Object.keys(defaults).forEach((key) => { form.elements.namedItem(key).value = theme[key]; });
 };
 
-form.addEventListener('input', updateTheme);
-form.addEventListener('change', updateTheme);
+const syncPreset = (theme) => {
+  presetSelect.value = Object.keys(presets).find((id) =>
+    Object.keys(defaults).every((key) => presets[id][key] === theme[key])
+  ) || '';
+};
+
+const saveTheme = (theme) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, theme }));
+    storageStatus.textContent = '已自动保存到当前浏览器';
+  } catch {
+    storageStatus.textContent = '当前浏览器无法保存，刷新前请下载主题';
+  }
+};
+
+const updateTheme = ({ persist = true } = {}) => {
+  const theme = getThemeState();
+  applyThemeToPreview(theme);
+  syncPreset(theme);
+  const valid = isValidTheme(theme);
+  copyJsonButton.disabled = !valid;
+  downloadJsonButton.disabled = !valid;
+  if (!valid) {
+    jsonOutput.textContent = '';
+    setStatus('请填写 1–100 字的主题名称，并检查颜色和布局设置');
+    storageStatus.textContent = '当前设置未保存；保留上次有效设置';
+    return;
+  }
+  renderJson(theme);
+  setStatus('可导出');
+  if (persist) saveTheme(theme);
+};
+
+form.addEventListener('submit', (event) => event.preventDefault());
+form.addEventListener('input', () => updateTheme());
+form.addEventListener('change', () => updateTheme());
+
+presetSelect.addEventListener('change', () => {
+  if (!Object.hasOwn(presets, presetSelect.value)) return;
+  applyForm(presets[presetSelect.value]);
+  updateTheme();
+});
 
 copyJsonButton.addEventListener('click', async () => {
   try {
-    await navigator.clipboard.writeText(jsonOutput.textContent);
-    setStatus('Copied');
+    const output = JSON.stringify(buildThemeJson(getThemeState()), null, 2);
+    await navigator.clipboard.writeText(output);
+    setStatus('已复制');
   } catch {
-    setStatus('Copy failed');
+    setStatus('复制失败，请下载 JSON 或手动复制下方内容');
   }
 });
 
 downloadJsonButton.addEventListener('click', () => {
-  const theme = getThemeState();
-  const blob = new Blob([JSON.stringify(buildThemeJson(theme), null, 2)], {
-    type: 'application/json',
-  });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  const filename = `${theme.themeName.trim().replace(/\s+/g, '-').toLowerCase() || 'powerbi-theme'}.json`;
-
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-  setStatus('Downloaded');
+  let url;
+  let link;
+  try {
+    const theme = getThemeState();
+    const output = JSON.stringify(buildThemeJson(theme), null, 2);
+    const blob = new Blob([output], { type: 'application/json' });
+    url = URL.createObjectURL(blob);
+    link = document.createElement('a');
+    link.href = url;
+    link.download = (theme.themeName.trim().replace(/[\\/:*?"<>|\u0000-\u001f]/g, '-').replace(/\s+/g, '-').toLowerCase() || 'powerbi-theme') + '.json';
+    document.body.appendChild(link);
+    link.click();
+    setStatus('已发起下载');
+  } catch {
+    setStatus('下载失败，请检查设置或复制下方 JSON');
+  } finally {
+    if (link) link.remove();
+    if (url) setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
 });
 
 resetButton.addEventListener('click', () => {
-  Object.entries(defaults).forEach(([key, value]) => {
-    const field = form.elements.namedItem(key);
-    if (field) {
-      field.value = value;
-    }
-  });
-
+  applyForm(defaults);
   updateTheme();
-  setStatus('Reset');
+  setStatus('已恢复默认');
 });
 
-updateTheme();
+const restoreTheme = () => {
+  applyForm(defaults);
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      storageStatus.textContent = '修改后自动保存到当前浏览器';
+    } else {
+      const saved = JSON.parse(raw);
+      if (saved?.version !== 1 || !isValidTheme(saved.theme)) throw new Error('Invalid saved theme');
+      applyForm(saved.theme);
+      storageStatus.textContent = '已恢复上次编辑';
+    }
+  } catch {
+    storageStatus.textContent = '未能恢复保存的设置，已使用默认主题';
+  }
+  updateTheme({ persist: false });
+};
+
+restoreTheme();
